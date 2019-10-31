@@ -11,18 +11,29 @@ from nltk import RegexpTokenizer
 from nltk.corpus import stopwords
 from os import listdir
 from os.path import isfile, join
+import pandas as pd
 
 #now create a list that contains the name of all the text file in your data #folder
-docLabels = []
-docLabels = [f for f in listdir(PATH) if f.endswith('.txt')]
+docslabels = []
+docslabels = [f for f in listdir(r'C:\Users\daniel.lopez\Desktop\IE\Facturas') if f.endswith('.txt')]
+
 #create a list data that stores the content of all text files in order of their names in docLabels
 data = []
-for doc in docLabels:
-  data.append(open(PATH' + doc, encoding = 'latin-1').read())
+for doc in docslabels:
+    data.append(open(r'C:\Users\daniel.lopez\Desktop\IE\Facturas\\' + doc, encoding = 'latin-1').read())
+    
+# Remove characters from doc lables
+docLabels = []
+
+for name in docslabels:
+    name = name.replace('.txt','') 
+    name = name.lower()
+    docLabels.append(name)
 
 
 tokenizer = RegexpTokenizer(r'\w+')
 stopword_set = set(stopwords.words('spanish'))
+
 #This function does all cleaning of data using two objects above
 def nlp_clean(data):
    new_data = []
@@ -61,29 +72,48 @@ print ('model saved')
 
 #loading the model
 d2v_model = gensim.models.doc2vec.Doc2Vec.load('doc2vec.model')
+
 #start testing
 #printing the vector of document at index 1 in docLabels
-docvec = d2v_model.docvecs[1]
+docvec = pd.np.mean(d2v_model.docvecs[1])
 print(docvec)
-#printing the vector of the file using its name
-docvec = d2v_model.docvecs[NAME_DOC] #if string tag used in training
-print (docvec)
-#to get most similar document with similarity scores using document-index
-similar_doc = d2v_model.docvecs.most_similar(14) 
-print(similar_doc)
-#to get most similar document with similarity scores using document- name
-sims = d2v_model.docvecs.most_similar(NAME_DOC)
-print (sims)
-#to get vector of document that are not present in corpus 
-docLabels_nocorpus = 'NAME_NEW_DOC'
+
+avg_list= list()
+
+for i in range(0,len(d2v_model.docvecs)):
+    avg_np = (d2v_model.docvecs[i])
+    avg_list.append(avg_np)
+    
+df = pd.DataFrame()
+    
+df['name'] = pd.Series(docLabels) 
+
+df['avg_np'] = pd.Series(avg_list) 
+
+# Creating the annoy 
+from annoy import AnnoyIndex
+
+# Number of dimensions of the vector annoy is going to store. 
+# Make sure it's the same as the word2vec we're using!
+f = 300
+
+# Specify the metric to be used for computing distances. 
+u = AnnoyIndex(f, metric='angular') 
+
+df['index'] = [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15]
+
+# We can sequentially add items.
+for index,row in df.iterrows():
+    u.add_item(row['index'],row['avg_np'])
+
+# Number of trees for queries. When making a query the more trees the easier it is to go down the right path. 
+u.build(10000) # 10 trees
+
 data_nocorpus = []
-data_nocorpus.append(open(PATH + NAME_NEW_DOC', encoding = 'latin-1').read())
-
+data_nocorpus.append(open(r'C:\Users\daniel.lopez\Desktop\IE\Facturas\(36) litolux 19091 SPOON INSIGHT S.L.txt', encoding = 'latin-1').read())
 docvec_nosee = d2v_model.infer_vector(data_nocorpus)
-print(docvec_nosee)
 
-similar_doc_nosee = d2v_model.docvecs.most_similar(5) 
-print(similar_doc_nosee)
+#similar_products = u.get_nns_by_item(10, 10)
+similar_facts = u.get_nns_by_vector(docvec_nosee, 5, search_k=-1, include_distances=True)
 
-sims_nosee = d2v_model.docvecs.most_similar(NAME_NEW_DOC)
-print (sims_nosee)
+print(similar_facts)
